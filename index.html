@@ -551,4 +551,941 @@ body::before {
               </div>
             </div>
             <div class="card">
-              <div class="card-hdr">Public Key</div
+              <div class="card-hdr">Public Key</div>
+              <div class="card-body">
+                <div class="cert-pem" id="id-pubkey-pem">-----BEGIN PUBLIC KEY-----
+Loading...
+-----END PUBLIC KEY-----</div>
+              </div>
+            </div>
+          </div>
+          <div>
+            <div class="card">
+              <div class="card-hdr">User-Signed Certificate (PEM)</div>
+              <div class="card-body">
+                <div class="cert-pem" id="id-cert-pem">-----BEGIN CERTIFICATE-----
+Loading...
+-----END CERTIFICATE-----</div>
+              </div>
+            </div>
+            <div class="card">
+              <div class="card-hdr">Capability Grants</div>
+              <div class="card-body">
+                <div style="display:flex;flex-wrap:wrap;gap:5px;font-size:10px">
+                  <span class="pill pill-green">PAIR_DEVICE</span>
+                  <span class="pill pill-green">SIGN_DEVICE_CERT</span>
+                  <span class="pill pill-green">CAPSULE_SIGN</span>
+                  <span class="pill pill-green">CAPSULE_RELAY</span>
+                  <span class="pill pill-amber">KEY_ROTATE</span>
+                  <span class="pill pill-gray">OWNERSHIP_TRANSFER</span>
+                </div>
+                <hr class="divider">
+                <div style="font-size:10px;color:var(--muted)">
+                  Capabilities are encoded in the hub certificate and signed by the user key.
+                  The hub cannot self-elevate privileges.
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- ══ DEVICE REGISTRY ══ -->
+    <div class="panel" id="panel-devices">
+      <div class="panel-hdr">
+        <div>
+          <div class="panel-title">Device Registry</div>
+          <div class="panel-subtitle">All paired ESP32 nodes, certificates, lineage status</div>
+        </div>
+        <div class="panel-actions">
+          <button class="btn-sm primary" id="btn-pair-new">+ Pair New Device</button>
+        </div>
+      </div>
+      <div class="panel-body">
+        <div class="card">
+          <div class="card-hdr"><span>Registered Nodes</span><span id="dev-count-label">4 devices</span></div>
+          <table class="table" id="dev-table">
+            <thead><tr>
+              <th>Node ID</th>
+              <th>Name</th>
+              <th>Type</th>
+              <th>Location</th>
+              <th>Public Key</th>
+              <th>Cert Status</th>
+              <th>Trust</th>
+              <th>Last Seen</th>
+              <th>Actions</th>
+            </tr></thead>
+            <tbody id="dev-tbody"></tbody>
+          </table>
+        </div>
+      </div>
+    </div>
+
+    <!-- ══ TRUST LINEAGE ══ -->
+    <div class="panel" id="panel-trust">
+      <div class="panel-hdr">
+        <div>
+          <div class="panel-title">Trust Lineage Chain</div>
+          <div class="panel-subtitle">Cryptographic authority delegation: User → Hub → Device</div>
+        </div>
+      </div>
+      <div class="panel-body">
+        <div class="grid2">
+          <div>
+            <div class="card">
+              <div class="card-hdr">Authority Chain</div>
+              <div class="card-body">
+                <div class="trust-chain" id="trust-chain-visual"></div>
+              </div>
+            </div>
+            <div class="card">
+              <div class="card-hdr">Chain Verification</div>
+              <div class="card-body">
+                <div id="trust-verify-steps" style="display:flex;flex-direction:column;gap:6px;font-size:11px"></div>
+                <hr class="divider">
+                <button class="btn-sm primary" style="width:100%" id="btn-verify-chain">▶ Run Verification</button>
+              </div>
+            </div>
+          </div>
+          <div>
+            <div class="card">
+              <div class="card-hdr">Device Lineage Table</div>
+              <table class="table">
+                <thead><tr>
+                  <th>Device</th><th>Signed By</th><th>Chain Depth</th><th>Status</th>
+                </tr></thead>
+                <tbody id="lineage-tbody"></tbody>
+              </table>
+            </div>
+            <div class="card">
+              <div class="card-hdr">Trust Model Notes</div>
+              <div class="card-body" style="font-size:10px;color:var(--muted);line-height:1.8">
+                <div>• User key is the <span style="color:var(--amber)">root of trust</span>. No vendor CA exists.</div>
+                <div>• Hub certificate is user-signed. Hub cannot self-issue authority.</div>
+                <div>• Device certificates are hub-signed, user-authorized via lineage.</div>
+                <div>• All command capsules carry dual signatures (user + hub).</div>
+                <div>• ESP32 verifies signatures <span style="color:var(--green)">offline</span> without hub contact.</div>
+                <div>• Nonce prevents replay attacks. Expiry prevents stale execution.</div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- ══ CERTIFICATES ══ -->
+    <div class="panel" id="panel-certs">
+      <div class="panel-hdr">
+        <div>
+          <div class="panel-title">Certificate Store</div>
+          <div class="panel-subtitle">All issued certificates in the trust hierarchy</div>
+        </div>
+        <div class="panel-actions">
+          <button class="btn-sm" id="btn-export-certs">↓ Export Bundle</button>
+        </div>
+      </div>
+      <div class="panel-body">
+        <div class="card">
+          <div class="card-hdr">Certificate Index</div>
+          <table class="table">
+            <thead><tr>
+              <th>Subject</th><th>Type</th><th>Issuer</th><th>Algorithm</th><th>Issued</th><th>Expires</th><th>Status</th><th>View</th>
+            </tr></thead>
+            <tbody id="cert-tbody"></tbody>
+          </table>
+        </div>
+        <div class="card" id="cert-detail-card" style="display:none">
+          <div class="card-hdr"><span id="cert-detail-title">Certificate Detail</span>
+            <button class="btn-sm" id="btn-close-cert-detail">✕ Close</button>
+          </div>
+          <div class="card-body">
+            <div class="cert-pem" id="cert-detail-pem"></div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- ══ CAPSULE HISTORY ══ -->
+    <div class="panel" id="panel-capsules">
+      <div class="panel-hdr">
+        <div>
+          <div class="panel-title">Command Capsule History</div>
+          <div class="panel-subtitle">All dispatched capsules with verification status</div>
+        </div>
+        <div class="panel-actions">
+          <button class="btn-sm primary" id="btn-new-capsule">+ New Capsule</button>
+        </div>
+      </div>
+      <div class="panel-body">
+        <div class="card">
+          <div class="card-hdr"><span>Capsule Log</span><span id="cap-count-label">0 capsules</span></div>
+          <table class="table">
+            <thead><tr>
+              <th>Capsule ID</th>
+              <th>Device</th>
+              <th>Action</th>
+              <th>Nonce</th>
+              <th>Issued</th>
+              <th>Expires</th>
+              <th>User Sig</th>
+              <th>Hub Sig</th>
+              <th>Result</th>
+            </tr></thead>
+            <tbody id="cap-tbody"></tbody>
+          </table>
+        </div>
+      </div>
+    </div>
+
+    <!-- ══ API LOG ══ -->
+    <div class="panel" id="panel-api">
+      <div class="panel-hdr">
+        <div>
+          <div class="panel-title">API Request Log</div>
+          <div class="panel-subtitle">FastAPI endpoint traffic — live stream</div>
+        </div>
+        <div class="panel-actions">
+          <button class="btn-sm" id="btn-clear-api">⊗ Clear</button>
+          <button class="btn-sm primary" id="btn-pause-api">⏸ Pause</button>
+        </div>
+      </div>
+      <div class="panel-body" style="display:flex;flex-direction:column;height:100%">
+        <div style="display:flex;gap:8px;margin-bottom:10px;flex-wrap:wrap">
+          <span class="tag">POST → /api/auth/register-user</span>
+          <span class="tag">POST → /api/hub/register</span>
+          <span class="tag">POST → /api/device/pair</span>
+          <span class="tag">POST → /api/capsule/create</span>
+          <span class="tag">POST → /api/device/execute</span>
+          <span class="tag">GET → /api/device/list</span>
+          <span class="tag">GET → /api/trust/lineage</span>
+        </div>
+        <div class="log-stream" id="api-log" style="flex:1;min-height:0"></div>
+      </div>
+    </div>
+
+    <!-- ══ CONFIG ══ -->
+    <div class="panel" id="panel-config">
+      <div class="panel-hdr">
+        <div>
+          <div class="panel-title">Hub Configuration</div>
+          <div class="panel-subtitle">Runtime settings, capsule policy, network</div>
+        </div>
+        <div class="panel-actions">
+          <button class="btn-sm primary" id="btn-save-config">✓ Save Config</button>
+        </div>
+      </div>
+      <div class="panel-body">
+        <div class="grid2">
+          <div>
+            <div class="card">
+              <div class="card-hdr">Capsule Policy</div>
+              <div class="card-body">
+                <div class="form-field">
+                  <label class="form-label">Max Capsule TTL (seconds)</label>
+                  <input class="form-input" type="number" value="300" id="cfg-ttl"/>
+                </div>
+                <div class="form-field">
+                  <label class="form-label">Nonce Cache Window (seconds)</label>
+                  <input class="form-input" type="number" value="600" id="cfg-nonce-window"/>
+                </div>
+                <div class="form-field">
+                  <label class="form-label">Require Dual Signature</label>
+                  <select class="form-input form-select" id="cfg-dual-sig">
+                    <option value="yes" selected>Yes (User + Hub)</option>
+                    <option value="hub">Hub Only (degraded)</option>
+                  </select>
+                </div>
+                <div class="form-field">
+                  <label class="form-label">Max Capsules Per Device / Hour</label>
+                  <input class="form-input" type="number" value="120" id="cfg-rate"/>
+                </div>
+              </div>
+            </div>
+            <div class="card">
+              <div class="card-hdr">Network</div>
+              <div class="card-body">
+                <div class="form-field">
+                  <label class="form-label">Hub Listen Address</label>
+                  <input class="form-input" value="0.0.0.0:8000" id="cfg-addr"/>
+                </div>
+                <div class="form-field">
+                  <label class="form-label">Tailscale Interface</label>
+                  <input class="form-input" value="tailscale0" id="cfg-ts"/>
+                </div>
+                <div class="form-field">
+                  <label class="form-label">TLS Mode</label>
+                  <select class="form-input form-select">
+                    <option selected>Self-signed (local CA)</option>
+                    <option>mTLS (device client certs)</option>
+                  </select>
+                </div>
+              </div>
+            </div>
+          </div>
+          <div>
+            <div class="card">
+              <div class="card-hdr">Storage</div>
+              <div class="card-body">
+                <div class="form-field">
+                  <label class="form-label">Database Path</label>
+                  <input class="form-input" value="/var/hub/hub.db" id="cfg-db"/>
+                </div>
+                <div class="form-field">
+                  <label class="form-label">Key Store Path</label>
+                  <input class="form-input" value="/var/hub/keys/" id="cfg-keys"/>
+                </div>
+                <div class="form-field">
+                  <label class="form-label">Capsule History Retention (days)</label>
+                  <input class="form-input" type="number" value="90" id="cfg-retention"/>
+                </div>
+              </div>
+            </div>
+            <div class="card">
+              <div class="card-hdr">Security Flags</div>
+              <div class="card-body">
+                <div class="kv-grid" style="font-size:11px">
+                  <div class="kv-key">Replay Protection</div><div class="kv-val green">ENABLED</div>
+                  <div class="kv-key">Expiry Enforcement</div><div class="kv-val green">ENABLED</div>
+                  <div class="kv-key">Device ID Binding</div><div class="kv-val green">ENABLED</div>
+                  <div class="kv-key">Offline Verify (ESP32)</div><div class="kv-val green">SUPPORTED</div>
+                  <div class="kv-key">Vendor Cloud Auth</div><div class="kv-val" style="color:var(--red)">DISABLED</div>
+                  <div class="kv-key">Anonymous Pairing</div><div class="kv-val" style="color:var(--red)">DISABLED</div>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+  </div><!-- /main -->
+</div><!-- /layout -->
+
+<!-- STATUS BAR -->
+<div id="statusbar">
+  <div class="sb-left">
+    <div class="sb-item">FastAPI <span>running</span></div>
+    <div class="sb-item">SQLite <span id="sb-db">hub.db</span></div>
+    <div class="sb-item">Ed25519 <span>active</span></div>
+    <div class="sb-item">Capsule Engine <span>ready</span></div>
+  </div>
+  <div class="sb-right">
+    <div class="sb-item">Signed Capsules Today: <span id="sb-caps-today">0</span></div>
+    <div class="sb-item">Violations: <span id="sb-vio">0</span></div>
+    <div class="sb-item" id="sb-time-item">--</div>
+  </div>
+</div>
+
+<!-- PAIR DEVICE MODAL -->
+<div class="modal-bg" id="modal-pair">
+  <div class="modal">
+    <div class="modal-hdr">
+      <span class="modal-title">Pair New Device</span>
+      <button class="modal-close" id="close-modal-pair">✕</button>
+    </div>
+    <div class="form-field">
+      <label class="form-label">Device Name</label>
+      <input class="form-input" id="pair-name" placeholder="e.g. Bedroom Fan"/>
+    </div>
+    <div class="form-field">
+      <label class="form-label">Device Type</label>
+      <select class="form-input form-select" id="pair-type">
+        <option value="relay">Relay Node</option>
+        <option value="ir">IR Blaster</option>
+        <option value="triac">Triac Controller</option>
+        <option value="sensor">Sensor Node</option>
+      </select>
+    </div>
+    <div class="form-field">
+      <label class="form-label">Location</label>
+      <input class="form-input" id="pair-location" placeholder="e.g. Bedroom"/>
+    </div>
+    <hr class="divider">
+    <div style="font-size:10px;color:var(--muted);margin-bottom:10px">
+      Hub will generate an Ed25519 device certificate signed by the hub key (which is user-authorized).
+      The device must present its public key during the pairing handshake.
+    </div>
+    <div style="display:flex;gap:8px">
+      <button class="btn-sm" id="close-modal-pair-2" style="flex:1">Cancel</button>
+      <button class="btn-sm primary" id="btn-confirm-pair" style="flex:1">Generate Cert + Pair</button>
+    </div>
+  </div>
+</div>
+
+<!-- NEW CAPSULE MODAL -->
+<div class="modal-bg" id="modal-capsule">
+  <div class="modal">
+    <div class="modal-hdr">
+      <span class="modal-title">Create Command Capsule</span>
+      <button class="modal-close" id="close-modal-capsule">✕</button>
+    </div>
+    <div class="form-field">
+      <label class="form-label">Target Device</label>
+      <select class="form-input form-select" id="cap-device"></select>
+    </div>
+    <div class="form-field">
+      <label class="form-label">Action</label>
+      <select class="form-input form-select" id="cap-action">
+        <option>POWER_ON</option>
+        <option>POWER_OFF</option>
+        <option>SET_LEVEL</option>
+        <option>QUERY_STATUS</option>
+        <option>REBOOT</option>
+      </select>
+    </div>
+    <div class="form-field">
+      <label class="form-label">Parameters (JSON)</label>
+      <input class="form-input" id="cap-params" value='{"intensity": 100}'/>
+    </div>
+    <div class="form-field">
+      <label class="form-label">TTL (seconds)</label>
+      <input class="form-input" type="number" id="cap-ttl" value="300"/>
+    </div>
+    <hr class="divider">
+    <div id="cap-preview" style="font-size:10px;color:var(--muted);margin-bottom:10px">
+      Capsule will be signed by: <span style="color:var(--amber)">USER_KEY + HUB_KEY</span> (Ed25519 dual-signature)
+    </div>
+    <div style="display:flex;gap:8px">
+      <button class="btn-sm" id="close-modal-capsule-2" style="flex:1">Cancel</button>
+      <button class="btn-sm primary" id="btn-confirm-capsule" style="flex:1">Sign + Dispatch</button>
+    </div>
+  </div>
+</div>
+
+<script>
+// ═══════════════════════════════════════════════════════════════
+// DATA
+// ═══════════════════════════════════════════════════════════════
+const HUB_ID  = "EC-HUB-A1B2C3";
+const HUB_FP  = "SHA256:4a8b2c1d9e7f3a2b1c4d5e6f7a8b9c0d";
+const START   = Date.now();
+
+let capsuleCount = 0;
+let apiPaused    = false;
+
+const devices = [
+  { id:"EC-001", name:"Living Room AC",  type:"ir",     location:"Living Room", online:true,  trustOk:true,  lastSeen:"2s",  latency:"3ms" },
+  { id:"EC-002", name:"Kitchen Lights",  type:"relay",  location:"Kitchen",     online:true,  trustOk:true,  lastSeen:"5s",  latency:"4ms" },
+  { id:"EC-003", name:"Water Heater",    type:"triac",  location:"Utility",     online:true,  trustOk:true,  lastSeen:"1s",  latency:"2ms" },
+  { id:"EC-004", name:"Gate Sensor",     type:"sensor", location:"Entrance",    online:false, trustOk:false, lastSeen:"8m",  latency:"--"  },
+];
+
+const capsuleLog = [];
+
+const certStore = [
+  { subject:"USER_ROOT_KEY",  type:"Root",   issuer:"Self",        algo:"Ed25519", issued:"2025-06-01", expires:"2027-06-01", status:"valid" },
+  { subject:"EC-HUB-A1B2C3", type:"Hub",    issuer:"USER_ROOT_KEY",algo:"Ed25519", issued:"2025-06-01", expires:"2026-06-01", status:"valid" },
+  { subject:"EC-001",         type:"Device", issuer:"EC-HUB-A1B2C3",algo:"Ed25519", issued:"2025-06-02", expires:"2026-06-02", status:"valid" },
+  { subject:"EC-002",         type:"Device", issuer:"EC-HUB-A1B2C3",algo:"Ed25519", issued:"2025-06-03", expires:"2026-06-03", status:"valid" },
+  { subject:"EC-003",         type:"Device", issuer:"EC-HUB-A1B2C3",algo:"Ed25519", issued:"2025-06-04", expires:"2026-06-04", status:"valid" },
+  { subject:"EC-004",         type:"Device", issuer:"EC-HUB-A1B2C3",algo:"Ed25519", issued:"2025-06-05", expires:"2026-06-05", status:"revoked" },
+];
+
+// ═══════════════════════════════════════════════════════════════
+// UTILS
+// ═══════════════════════════════════════════════════════════════
+function rand(arr) { return arr[Math.floor(Math.random()*arr.length)]; }
+function fakeHex(n) {
+  return Array.from(crypto.getRandomValues(new Uint8Array(n)))
+    .map(b=>b.toString(16).padStart(2,"0")).join("");
+}
+function nonce8() { return fakeHex(8); }
+function fakeKey(n=32) { return fakeHex(n).toUpperCase(); }
+function fakePem(type, n=48) {
+  let body = "";
+  const raw = fakeHex(n*2);
+  for (let i=0;i<raw.length;i+=64) body += raw.slice(i,i+64)+"\n";
+  return `-----BEGIN ${type}-----\n${body}-----END ${type}-----`;
+}
+function tsNow() { return new Date().toISOString().replace("T"," ").slice(0,19); }
+function pad2(n) { return String(n).padStart(2,"0"); }
+function fmtUptime(ms) {
+  const s=Math.floor(ms/1000);
+  return `${pad2(Math.floor(s/3600))}:${pad2(Math.floor(s/60)%60)}:${pad2(s%60)}`;
+}
+
+// ═══════════════════════════════════════════════════════════════
+// CLOCK + UPTIME
+// ═══════════════════════════════════════════════════════════════
+function updateClock() {
+  const n = new Date();
+  document.getElementById("clock").textContent =
+    `${pad2(n.getHours())}:${pad2(n.getMinutes())}:${pad2(n.getSeconds())}`;
+  document.getElementById("sb-uptime").textContent = fmtUptime(Date.now()-START);
+  document.getElementById("sb-time-item").textContent = tsNow();
+}
+setInterval(updateClock, 1000);
+updateClock();
+
+// ═══════════════════════════════════════════════════════════════
+// SIDEBAR NAVIGATION
+// ═══════════════════════════════════════════════════════════════
+document.querySelectorAll(".nav-btn").forEach(btn => {
+  btn.addEventListener("click", () => {
+    document.querySelectorAll(".nav-btn").forEach(b => b.classList.remove("active"));
+    document.querySelectorAll(".panel").forEach(p => p.classList.remove("active"));
+    btn.classList.add("active");
+    const id = btn.dataset.panel;
+    document.getElementById(`panel-${id}`).classList.add("active");
+  });
+});
+
+// ═══════════════════════════════════════════════════════════════
+// OVERVIEW — node table
+// ═══════════════════════════════════════════════════════════════
+function renderOverviewNodes() {
+  const tbody = document.getElementById("ov-node-tbody");
+  tbody.innerHTML = "";
+  devices.forEach(d => {
+    const tr = document.createElement("tr");
+    const statusPill = d.online
+      ? `<span class="pill pill-green">● ONLINE</span>`
+      : `<span class="pill pill-red">● OFFLINE</span>`;
+    tr.innerHTML = `
+      <td class="amber mono">${d.id}</td>
+      <td>${d.name}</td>
+      <td class="muted">${d.type}</td>
+      <td>${statusPill}</td>
+      <td class="mono green">${d.latency}</td>
+    `;
+    tbody.appendChild(tr);
+  });
+  document.getElementById("ov-node-ts").textContent = tsNow();
+  document.getElementById("m-nodes").textContent = devices.filter(d=>d.online).length;
+}
+
+function initOverviewIdentity() {
+  document.getElementById("ov-pubkey").textContent = fakeKey(16)+"…";
+  document.getElementById("ov-cert-date").textContent = "2025-06-01";
+}
+
+// ═══════════════════════════════════════════════════════════════
+// IDENTITY panel
+// ═══════════════════════════════════════════════════════════════
+function initIdentity() {
+  document.getElementById("id-created").textContent = "2025-06-01 12:00:00";
+  document.getElementById("id-fp").textContent = HUB_FP;
+  document.getElementById("id-pubkey-pem").textContent = fakePem("PUBLIC KEY", 22);
+  document.getElementById("id-cert-pem").textContent = fakePem("CERTIFICATE", 64);
+}
+
+document.getElementById("btn-rotate-key").addEventListener("click", () => {
+  if (!confirm("Rotating the hub key will require re-pairing all devices. Proceed?")) return;
+  addOvLog("WARN", "Hub key rotation initiated — all device certs invalidated");
+  document.getElementById("id-pubkey-pem").textContent = fakePem("PUBLIC KEY", 22);
+  document.getElementById("id-cert-pem").textContent   = fakePem("CERTIFICATE", 64);
+  document.getElementById("id-fp").textContent = "SHA256:"+fakeHex(16);
+});
+
+// ═══════════════════════════════════════════════════════════════
+// DEVICE REGISTRY
+// ═══════════════════════════════════════════════════════════════
+function renderDeviceRegistry() {
+  const tbody = document.getElementById("dev-tbody");
+  tbody.innerHTML = "";
+  document.getElementById("dev-count-label").textContent = `${devices.length} devices`;
+  devices.forEach(d => {
+    const tr = document.createElement("tr");
+    const certPill = d.trustOk
+      ? `<span class="pill pill-green">VALID</span>`
+      : `<span class="pill pill-red">REVOKED</span>`;
+    const trustPill = d.trustOk
+      ? `<span class="pill pill-green">OK</span>`
+      : `<span class="pill pill-red">FAIL</span>`;
+    tr.innerHTML = `
+      <td class="amber mono">${d.id}</td>
+      <td>${d.name}</td>
+      <td class="muted">${d.type}</td>
+      <td class="muted">${d.location}</td>
+      <td class="mono" style="font-size:9px;color:var(--muted)">${fakeKey(8)}…</td>
+      <td>${certPill}</td>
+      <td>${trustPill}</td>
+      <td class="muted">${d.lastSeen}</td>
+      <td style="white-space:nowrap">
+        <button class="btn-sm" onclick="viewDeviceCert('${d.id}')">Cert</button>
+        <button class="btn-sm" onclick="dispatchCapsuleFor('${d.id}')" style="margin-left:3px" ${!d.online?'disabled':''}>Capsule</button>
+      </td>
+    `;
+    tbody.appendChild(tr);
+  });
+}
+
+window.viewDeviceCert = function(id) {
+  alert(`Certificate for ${id}:\n\n${fakePem("CERTIFICATE", 48)}`);
+};
+window.dispatchCapsuleFor = function(id) {
+  openCapsuleModal(id);
+};
+
+// Pair modal
+document.getElementById("btn-pair-new").addEventListener("click", () => {
+  document.getElementById("modal-pair").classList.add("open");
+});
+["close-modal-pair","close-modal-pair-2"].forEach(id => {
+  document.getElementById(id).addEventListener("click", () => {
+    document.getElementById("modal-pair").classList.remove("open");
+  });
+});
+document.getElementById("btn-confirm-pair").addEventListener("click", () => {
+  const name = document.getElementById("pair-name").value.trim();
+  const type = document.getElementById("pair-type").value;
+  const loc  = document.getElementById("pair-location").value.trim() || "Unknown";
+  if (!name) { document.getElementById("pair-name").focus(); return; }
+  const newId = `EC-${String(devices.length+1).padStart(3,"0")}`;
+  devices.push({ id:newId, name, type, location:loc, online:true, trustOk:true, lastSeen:"just now", latency:"4ms" });
+  certStore.push({ subject:newId, type:"Device", issuer:"EC-HUB-A1B2C3", algo:"Ed25519", issued:tsNow().slice(0,10), expires:"2026-06-01", status:"valid" });
+  document.getElementById("modal-pair").classList.remove("open");
+  renderDeviceRegistry();
+  renderCertStore();
+  renderLineage();
+  addApiLog("POST","/api/device/pair","201","device_id="+newId);
+  addOvLog("OK", `Device paired: ${name} [${newId}] — cert issued by HUB`);
+  document.getElementById("m-nodes").textContent = devices.filter(d=>d.online).length;
+  document.getElementById("dev-count-label").textContent = `${devices.length} devices`;
+});
+
+// ═══════════════════════════════════════════════════════════════
+// TRUST LINEAGE
+// ═══════════════════════════════════════════════════════════════
+function renderTrustChain() {
+  const chain = document.getElementById("trust-chain-visual");
+  chain.innerHTML = `
+    <div class="trust-node">
+      <span class="role" style="color:var(--amber)">USER</span>
+      <span style="color:var(--amber)">USER_ROOT_KEY</span>
+      <span class="pill pill-amber" style="margin-left:auto">Root Authority</span>
+    </div>
+    <div class="trust-arrow">↓ signs hub certificate</div>
+    <div class="trust-node" style="margin-left:20px">
+      <span class="role" style="color:var(--blue)">HUB</span>
+      <span style="color:var(--blue)">EC-HUB-A1B2C3</span>
+      <span class="pill pill-blue" style="margin-left:auto">Delegated</span>
+    </div>
+    <div class="trust-arrow" style="padding-left:40px">↓ signs device certificates</div>
+    ${devices.map((d,i) => `
+      <div class="trust-node" style="margin-left:40px">
+        <span class="role" style="color:${d.trustOk?'var(--green)':'var(--red)'}">${d.id}</span>
+        <span style="color:${d.trustOk?'var(--green)':'var(--red)'}">${d.name}</span>
+        <span class="pill ${d.trustOk?'pill-green':'pill-red'}" style="margin-left:auto">${d.trustOk?'Trusted':'Revoked'}</span>
+      </div>
+    `).join("")}
+  `;
+}
+
+function renderLineage() {
+  const tbody = document.getElementById("lineage-tbody");
+  tbody.innerHTML = "";
+  devices.forEach(d => {
+    const tr = document.createElement("tr");
+    tr.innerHTML = `
+      <td class="amber mono">${d.id} · ${d.name}</td>
+      <td class="blue mono">EC-HUB-A1B2C3</td>
+      <td class="muted">3 (User→Hub→Device)</td>
+      <td>${d.trustOk ? '<span class="pill pill-green">VALID</span>' : '<span class="pill pill-red">BROKEN</span>'}</td>
+    `;
+    tbody.appendChild(tr);
+  });
+  renderTrustChain();
+}
+
+// Chain verification simulation
+document.getElementById("btn-verify-chain").addEventListener("click", () => {
+  const steps = document.getElementById("trust-verify-steps");
+  steps.innerHTML = "";
+  const checks = [
+    ["Verifying user root key signature on hub cert…", "ok"],
+    ["Verifying hub key signatures on device certs…", "ok"],
+    ["Checking certificate expiry dates…", "ok"],
+    ["Validating nonce cache integrity…", "ok"],
+    [`EC-004 cert revoked — trust chain broken for Gate Sensor`, "warn"],
+    ["Chain verification complete", "ok"],
+  ];
+  let i = 0;
+  const iv = setInterval(() => {
+    if (i >= checks.length) { clearInterval(iv); return; }
+    const [msg, lvl] = checks[i];
+    const div = document.createElement("div");
+    div.style.display = "flex";
+    div.style.gap = "8px";
+    const icon = lvl==="ok" ? `<span style="color:var(--green)">✓</span>` : `<span style="color:var(--amber)">!</span>`;
+    const color = lvl==="ok" ? "var(--text)" : "var(--amber)";
+    div.innerHTML = `${icon}<span style="color:${color}">${msg}</span>`;
+    steps.appendChild(div);
+    i++;
+  }, 400);
+});
+
+// ═══════════════════════════════════════════════════════════════
+// CERTIFICATES
+// ═══════════════════════════════════════════════════════════════
+function renderCertStore() {
+  const tbody = document.getElementById("cert-tbody");
+  tbody.innerHTML = "";
+  certStore.forEach(c => {
+    const tr = document.createElement("tr");
+    const statusPill = c.status === "valid"
+      ? `<span class="pill pill-green">VALID</span>`
+      : `<span class="pill pill-red">REVOKED</span>`;
+    const typePill = c.type === "Root"
+      ? `<span class="pill pill-amber">Root</span>`
+      : c.type === "Hub"
+        ? `<span class="pill pill-blue">Hub</span>`
+        : `<span class="pill pill-gray">Device</span>`;
+    tr.innerHTML = `
+      <td class="amber mono">${c.subject}</td>
+      <td>${typePill}</td>
+      <td class="muted mono">${c.issuer}</td>
+      <td class="muted">${c.algo}</td>
+      <td class="muted">${c.issued}</td>
+      <td class="muted">${c.expires}</td>
+      <td>${statusPill}</td>
+      <td><button class="btn-sm" onclick="showCertDetail('${c.subject}')">View PEM</button></td>
+    `;
+    tbody.appendChild(tr);
+  });
+}
+
+window.showCertDetail = function(subject) {
+  document.getElementById("cert-detail-card").style.display = "block";
+  document.getElementById("cert-detail-title").textContent = `Certificate: ${subject}`;
+  document.getElementById("cert-detail-pem").textContent = fakePem("CERTIFICATE", 64);
+};
+document.getElementById("btn-close-cert-detail").addEventListener("click", () => {
+  document.getElementById("cert-detail-card").style.display = "none";
+});
+document.getElementById("btn-export-certs").addEventListener("click", () => {
+  addOvLog("INFO", "Certificate bundle exported — "+certStore.length+" certs");
+});
+
+// ═══════════════════════════════════════════════════════════════
+// CAPSULES
+// ═══════════════════════════════════════════════════════════════
+function renderCapsuleLog() {
+  const tbody = document.getElementById("cap-tbody");
+  tbody.innerHTML = "";
+  capsuleLog.slice().reverse().forEach(c => {
+    const tr = document.createElement("tr");
+    const resultPill = c.result === "EXECUTED"
+      ? `<span class="pill pill-green">EXECUTED</span>`
+      : c.result === "PENDING"
+        ? `<span class="pill pill-amber">PENDING</span>`
+        : `<span class="pill pill-red">REJECTED</span>`;
+    tr.innerHTML = `
+      <td class="mono" style="font-size:9px;color:var(--muted)">${c.id.slice(0,16)}…</td>
+      <td class="amber">${c.device}</td>
+      <td class="blue">${c.action}</td>
+      <td class="mono muted" style="font-size:9px">${c.nonce}</td>
+      <td class="muted" style="font-size:9px">${c.issued}</td>
+      <td class="muted" style="font-size:9px">${c.expires}</td>
+      <td class="green mono" style="font-size:9px">${c.userSig.slice(0,12)}…</td>
+      <td class="green mono" style="font-size:9px">${c.hubSig.slice(0,12)}…</td>
+      <td>${resultPill}</td>
+    `;
+    tbody.appendChild(tr);
+  });
+  document.getElementById("cap-count-label").textContent = `${capsuleLog.length} capsules`;
+  document.getElementById("sb-capsules").textContent = capsuleLog.length;
+  document.getElementById("m-caps").textContent = capsuleLog.length;
+  document.getElementById("sb-caps-today").textContent = capsuleLog.length;
+}
+
+function createCapsule(deviceId, action, params) {
+  const dev = devices.find(d=>d.id===deviceId) || devices[0];
+  const now = new Date();
+  const expires = new Date(now.getTime() + 300000);
+  const cap = {
+    id: "CAP-" + fakeHex(16),
+    device: dev.id,
+    deviceName: dev.name,
+    action,
+    params,
+    nonce: nonce8(),
+    issued: now.toISOString().slice(0,19).replace("T"," "),
+    expires: expires.toISOString().slice(0,19).replace("T"," "),
+    userSig: "ED25519:"+fakeKey(32),
+    hubSig:  "ED25519:"+fakeKey(32),
+    result: "EXECUTED",
+  };
+  capsuleLog.push(cap);
+  capsuleCount++;
+  renderCapsuleLog();
+  addApiLog("POST","/api/capsule/create","201",`device=${deviceId} action=${action}`);
+  addApiLog("POST","/api/device/execute","200",`capsule_id=${cap.id.slice(0,12)}… result=OK`);
+  addOvLog("OK", `Capsule dispatched → ${dev.name} [${action}] nonce:${cap.nonce}`);
+  return cap;
+}
+
+// Capsule modal
+function openCapsuleModal(preselect) {
+  const sel = document.getElementById("cap-device");
+  sel.innerHTML = "";
+  devices.filter(d=>d.online).forEach(d => {
+    const opt = document.createElement("option");
+    opt.value = d.id;
+    opt.textContent = `${d.id} · ${d.name}`;
+    if (d.id === preselect) opt.selected = true;
+    sel.appendChild(opt);
+  });
+  document.getElementById("modal-capsule").classList.add("open");
+}
+
+document.getElementById("btn-new-capsule").addEventListener("click", () => openCapsuleModal(null));
+["close-modal-capsule","close-modal-capsule-2"].forEach(id => {
+  document.getElementById(id).addEventListener("click", () => {
+    document.getElementById("modal-capsule").classList.remove("open");
+  });
+});
+document.getElementById("btn-confirm-capsule").addEventListener("click", () => {
+  const devId  = document.getElementById("cap-device").value;
+  const action = document.getElementById("cap-action").value;
+  const params = document.getElementById("cap-params").value;
+  let p = {};
+  try { p = JSON.parse(params); } catch(e) {}
+  createCapsule(devId, action, p);
+  document.getElementById("modal-capsule").classList.remove("open");
+});
+
+// ═══════════════════════════════════════════════════════════════
+// API LOG
+// ═══════════════════════════════════════════════════════════════
+function addApiLog(method, path, status, note) {
+  if (apiPaused) return;
+  const log = document.getElementById("api-log");
+  const line = document.createElement("div");
+  line.className = "log-line";
+  const methodClass = method==="POST" ? "log-post" : method==="GET" ? "log-get" : "log-del";
+  const statusClass = status.startsWith("2") ? "log-200" : status.startsWith("4") ? "log-400" : "log-200";
+  line.innerHTML = `
+    <span class="log-ts">${tsNow()}</span>
+    <span class="log-method ${methodClass}">${method}</span>
+    <span class="log-path">${path}</span>
+    <span class="log-status ${statusClass}">${status}</span>
+    <span class="log-note">${note||""}</span>
+  `;
+  log.prepend(line);
+  while (log.children.length > 100) log.removeChild(log.lastChild);
+}
+
+document.getElementById("btn-clear-api").addEventListener("click", () => {
+  document.getElementById("api-log").innerHTML = "";
+});
+document.getElementById("btn-pause-api").addEventListener("click", function() {
+  apiPaused = !apiPaused;
+  this.textContent = apiPaused ? "▶ Resume" : "⏸ Pause";
+  this.classList.toggle("primary", !apiPaused);
+});
+
+// ═══════════════════════════════════════════════════════════════
+// OVERVIEW LOG
+// ═══════════════════════════════════════════════════════════════
+function addOvLog(level, msg) {
+  const log = document.getElementById("ov-log");
+  const line = document.createElement("div");
+  line.className = "log-line";
+  const colors = { OK:"var(--green)", WARN:"var(--amber)", ERR:"var(--red)", INFO:"var(--muted)" };
+  const color = colors[level] || colors.INFO;
+  line.innerHTML = `<span class="log-ts">${tsNow()}</span><span style="color:${color};flex-shrink:0;width:40px">${level}</span><span>${msg}</span>`;
+  log.prepend(line);
+  while (log.children.length > 80) log.removeChild(log.lastChild);
+}
+
+// ═══════════════════════════════════════════════════════════════
+// SPARKLINES (random bars)
+// ═══════════════════════════════════════════════════════════════
+function makeSpark(id, color) {
+  const el = document.getElementById(id);
+  if (!el) return;
+  el.innerHTML = "";
+  const heights = [4,6,10,8,14,12,16,10,18,12,8,16];
+  heights.forEach(h => {
+    const bar = document.createElement("div");
+    bar.className = "spark-bar";
+    bar.style.height = h + "px";
+    bar.style.background = color || "rgba(240,165,0,0.4)";
+    el.appendChild(bar);
+  });
+}
+makeSpark("spark-nodes","rgba(56,189,248,0.45)");
+makeSpark("spark-caps","rgba(240,165,0,0.45)");
+makeSpark("spark-violations","rgba(34,197,94,0.45)");
+
+// ═══════════════════════════════════════════════════════════════
+// SIMULATED LIVE TRAFFIC
+// ═══════════════════════════════════════════════════════════════
+const apiRoutes = [
+  ["GET",  "/api/device/list",    "200", ""],
+  ["GET",  "/api/device/status",  "200", "device_id=EC-001"],
+  ["GET",  "/api/device/status",  "200", "device_id=EC-002"],
+  ["GET",  "/api/trust/lineage",  "200", ""],
+  ["GET",  "/api/capsule/history","200", "limit=20"],
+  ["POST", "/api/device/execute", "200", "result=OK"],
+  ["POST", "/api/capsule/create", "201", ""],
+  ["GET",  "/api/device/EC-003",  "200", ""],
+  ["POST", "/api/device/execute", "401", "invalid_sig"],
+];
+let lastCpuMem = [22, 145];
+function simulateLiveTraffic() {
+  const [method, path, status, note] = rand(apiRoutes);
+  addApiLog(method, path, status, note);
+  if (Math.random() < 0.25) {
+    const dev = rand(devices.filter(d=>d.online));
+    const action = rand(["POWER_ON","POWER_OFF","QUERY_STATUS"]);
+    createCapsule(dev.id, action, {});
+  }
+  // fake cpu/mem
+  lastCpuMem[0] = Math.max(5, Math.min(80, lastCpuMem[0] + (Math.random()*6-3)));
+  lastCpuMem[1] = Math.max(100, Math.min(400, lastCpuMem[1] + (Math.random()*10-5)));
+  document.getElementById("sb-cpu").textContent = lastCpuMem[0].toFixed(0)+"%";
+  document.getElementById("sb-mem").textContent = lastCpuMem[1].toFixed(0)+"MB";
+}
+setInterval(simulateLiveTraffic, 2800);
+
+// ═══════════════════════════════════════════════════════════════
+// CONFIG
+// ═══════════════════════════════════════════════════════════════
+document.getElementById("btn-save-config").addEventListener("click", () => {
+  addOvLog("OK", "Config saved — capsule TTL:"+document.getElementById("cfg-ttl").value+"s");
+});
+document.getElementById("btn-refresh-overview").addEventListener("click", () => {
+  renderOverviewNodes();
+  addOvLog("INFO","Overview refreshed");
+});
+
+// ═══════════════════════════════════════════════════════════════
+// BOOT
+// ═══════════════════════════════════════════════════════════════
+function boot() {
+  renderOverviewNodes();
+  initOverviewIdentity();
+  initIdentity();
+  renderDeviceRegistry();
+  renderTrustChain();
+  renderLineage();
+  renderCertStore();
+  renderCapsuleLog();
+
+  // Boot log sequence
+  const logs = [
+    ["INFO","Hub process started · PID 1842 · FastAPI 0.111"],
+    ["INFO","SQLite opened → /var/hub/hub.db · 4 devices registered"],
+    ["INFO","Ed25519 key loaded → EC-HUB-A1B2C3"],
+    ["OK",  "Hub certificate verified · Signed by USER_ROOT_KEY"],
+    ["OK",  "Trust lineage validated · 3 devices active"],
+    ["WARN","EC-004 certificate revoked — device offline"],
+    ["OK",  "Capsule engine ready · nonce cache warm"],
+    ["INFO","Tailscale interface up · 100.64.0.1"],
+    ["OK",  "Hub admin UI initialized"],
+  ];
+  logs.forEach(([lvl,msg],i) => {
+    setTimeout(() => {
+      addOvLog(lvl, msg);
+      addApiLog("GET","/api/device/list","200","count="+devices.length);
+    }, i*250);
+  });
+}
+boot();
+</script>
+</body>
+</html>
